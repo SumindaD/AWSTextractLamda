@@ -43,7 +43,15 @@ def getTextractData(bucketName, documentKey):
     
     #Get image byte array and save to S3
     imgByteArr = io.BytesIO()
-    image.save(imgByteArr, format='PNG')
+    
+    filename, file_extension = os.path.splitext(documentKey)
+    
+    file_extension = file_extension.replace('.', '')
+    
+    if(file_extension.lower() == 'jpg'):
+        file_extension = 'JPEG'
+    
+    image.save(imgByteArr, format=file_extension)
     s3.put_object(Bucket=bucketName,Key='Gen_' + documentKey,Body=imgByteArr.getvalue())
     
     return detectedText
