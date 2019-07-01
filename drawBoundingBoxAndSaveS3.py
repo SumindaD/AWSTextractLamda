@@ -21,7 +21,8 @@ def getTextractData(bucketName, documentKey):
                 'Name': documentKey
             }
         })
-        
+    
+    #Read Image Data from S3
     detectedText = ''
     image_object = s3.get_object(Bucket=bucketName,Key=documentKey)
     image_body_data = image_object['Body'].read()
@@ -30,7 +31,7 @@ def getTextractData(bucketName, documentKey):
     draw = ImageDraw.Draw(image)    
 
 
-    # Print detected text
+    # Print detected text and draw bounding box around detected texts
     for item in response['Blocks']:
         if item['BlockType'] == 'LINE':
             detectedText += item['Text'] + '\n'
@@ -39,7 +40,8 @@ def getTextractData(bucketName, documentKey):
             x2 = x1 + item['Geometry']['BoundingBox']['Width'] * width
             y2 = y1 + item['Geometry']['BoundingBox']['Height'] * height
             draw.rectangle([x1, y1, x2, y2], outline="Black")
-            
+    
+    #Get image byte array and save to S3
     imgByteArr = io.BytesIO()
     image.save(imgByteArr, format='PNG')
     s3.put_object(Bucket=bucketName,Key='Gen_' + documentKey,Body=imgByteArr.getvalue())
