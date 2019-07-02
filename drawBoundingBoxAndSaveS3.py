@@ -9,6 +9,68 @@ print('Loading function')
 
 s3 = boto3.client('s3')
 textract = boto3.client('textract')
+dynamodb = boto3.client('dynamodb')
+
+def initializeDynamoDBTable():
+    tableName = 'TextractData'
+    existing_tables = dynamodb.list_tables()['TableNames']
+    
+    if tableName not in existing_tables:
+        # Create the DynamoDB table.
+        table = dynamodb.create_table(
+            TableName=tableName,
+            KeySchema=[
+                {
+                    'AttributeName': 'UserId',
+                    'KeyType': 'HASH'
+                },
+                {
+                    'AttributeName': 'FileName',
+                    'KeyType': 'RANGE'
+                }
+            ],
+            AttributeDefinitions=[
+                {
+                    'AttributeName': 'UserId',
+                    'AttributeType': 'S'
+                },
+                {
+                    'AttributeName': 'FileName',
+                    'AttributeType': 'S'
+                }
+            ],
+            ProvisionedThroughput={
+                'ReadCapacityUnits': 5,
+                'WriteCapacityUnits': 5
+            }
+        )
+        
+        # Wait until the table exists.
+        waiter = dynamodb.get_waiter('table_exists')
+        waiter.wait(
+            TableName='TextractData',
+            WaiterConfig={
+                'Delay': 20,
+                'MaxAttempts': 25
+            }
+        )
+        
+        # Print out some data about the table.
+        print(table.item_count)
+        
+    else:
+        print(tableName + ' Exists!')
+
+def insertTextractDataToDynamoDB(userId, fileName, detectedText):
+    dynamodb.put_item(
+        TableName='TextractData',
+        Item={
+            'UserId': {'S': '1'},
+            'FileName': {'S': fileName},
+            'ScannedContent': {'S': detectedText}
+        }
+    )
+    
 
 def getTextractData(bucketName, documentKey):
 
@@ -71,6 +133,8 @@ def lambda_handler(event, context):
         if('Gen_' not in key):
             detectedText = getTextractData(bucket, key)
             writeTextractToS3File(detectedText, bucket, key)
+            initializeDynamoDBTable()
+            insertTextractDataToDynamoDB('1', key, detectedText)
         
         return 'Processing Done!'
 
